@@ -230,19 +230,39 @@
       return '我可以帮你做三件事：\n- 社区引流\n- 私信转化\n- 自动化跟进\n\n你现在最想解决哪一项？';
     }
 
-    function saveLead() {
+    const WEBHOOK_URL = 'https://hook.us1.make.com/REPLACE_WITH_YOUR_WEBHOOK_ID';
+
+    async function saveLead() {
       const item = {
         ts: new Date().toISOString(),
         source: 'website_chat',
         need: lead.need || 'general',
         contact: lead.contact || '',
-        page: location.href
+        page: location.href,
+        userAgent: navigator.userAgent
       };
+
+      // 1) 本地兜底保存
       const arr = JSON.parse(localStorage.getItem('chainflow_leads') || '[]');
       arr.push(item);
       localStorage.setItem('chainflow_leads', JSON.stringify(arr));
-      // 预留：后端可接 /api/lead
-      // fetch('/api/lead', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(item)}).catch(()=>{});
+
+      // 2) 真实推送到 webhook（Make / n8n / Zapier / 自建）
+      if (!WEBHOOK_URL.includes('REPLACE_WITH_YOUR_WEBHOOK_ID')) {
+        try {
+          const res = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (!res.ok) throw new Error('webhook_not_ok');
+          addMsg('已实时推送到运营后台 ✅', 'bot');
+        } catch (e) {
+          addMsg('已记录线索，但实时推送失败（请检查 webhook）。', 'bot');
+        }
+      } else {
+        addMsg('当前为演示模式：请先配置 WEBHOOK_URL 以接收真实线索。', 'bot');
+      }
     }
 
     function send() {
